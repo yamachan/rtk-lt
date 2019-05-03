@@ -8,48 +8,57 @@ const app = express();
 app.use(express.static('public'));
 
 let lt_apikey = '<your apiKey>';
+let lt_url = 'https://gateway.watsonplatform.net/language-translator/api/';
 try {
 	let lt_obj = JSON.parse(process.env.VCAP_SERVICES);
 	if (!!lt_obj.language_translator[0].credentials.apikey) {
 		lt_apikey = lt_obj.language_translator[0].credentials.apikey;
+		lt_url = lt_obj.language_translator[0].credentials.url;
 	}
 } catch (e) {}
 const languageTranslator = new LanguageTranslatorV3({
   iam_apikey: lt_apikey,
-  url: 'https://gateway.watsonplatform.net/language-translator/api/',
+  url: lt_url,
   version: '2018-05-01'
 });
 
 // Check Custom Tlanslation Model
 let custom_model_id = '';
-languageTranslator.listModels(
-  {},
-  function(error, response) {
-    if (response.models) {
-		let m = response.models.filter(m => m.name == 'custom-en-ja');
-		if (m.length > 0) {
-		  custom_model_id = m[0].model_id;
-	  	} else {
-			console.log("Can't find custom model: custom-en-ja");
-			languageTranslator.createModel(
-				{
-					name: 'custom-en-ja',
-					base_model_id: 'en-ja',
-					forced_glossary: fs.createReadStream('glossary.tmx')
-				},
-				function(error, response) {
-					if (error)
-						console.log('Create Model: ' + error);
-					else
-						console.log(JSON.stringify(response, null, 2));
-				}
-			);
-		}
-  	}
-  }
-)
+if (false) {
+	languageTranslator.listModels(
+	  {},
+	  function(error, response) {
+	    if (response.models) {
+			let m = response.models.filter(m => m.name == 'custom-en-ja');
+			if (m.length > 0) {
+			  custom_model_id = m[0].model_id;
+		  	} else {
+				console.log("Can't find custom model: custom-en-ja");
+				languageTranslator.createModel(
+					{
+						name: 'custom-en-ja',
+						base_model_id: 'en-ja',
+						forced_glossary: fs.createReadStream('glossary.tmx')
+					},
+					function(error, response) {
+						if (error)
+							console.log('Create Model: ' + error);
+						else
+							console.log(JSON.stringify(response, null, 2));
+					}
+				);
+			}
+	  	}
+	  }
+	)
+}
 
+// Simple POST service for test of REST API client tool
 app.use(bodyParser.json({strict: true}));
+app.post('/echo', (req, res) => {
+	res.status(200).send(JSON.stringify(req.body, null, 2));
+});
+
 app.post('/translate', (req, res) => {
 	languageTranslator.translate(
 		!!custom_model_id && req.body.target == 'ja' ?
